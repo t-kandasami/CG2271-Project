@@ -1,0 +1,6 @@
+C:\Users\vetri\Documents\MCUXpressoIDE_25.6.136\workspace\FinalProject\CMSIS/core_cm0plus.h:757:22:__NVIC_EnableIRQ	16	static
+C:\Users\vetri\Documents\MCUXpressoIDE_25.6.136\workspace\FinalProject\CMSIS/core_cm0plus.h:848:22:__NVIC_ClearPendingIRQ	16	static
+C:\Users\vetri\Documents\MCUXpressoIDE_25.6.136\workspace\FinalProject\CMSIS/core_cm0plus.h:866:22:__NVIC_SetPriority	24	static
+../source/tap.c:11:6:TAP_Init	8	static
+../source/tap.c:29:6:PORTC_PORTD_IRQHandler	16	static
+../source/tap.c:43:6:vTapTask	24	static
