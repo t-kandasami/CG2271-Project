@@ -26,14 +26,14 @@ int main(void) {
     led_init();
     initUART2_RXTX(MCXC_UART_BAUD);
 
-    xTaskCreate(LIGHT_SENSOR_Task, "Light",  256, NULL, 2, NULL);
-    xTaskCreate(vTapTask, "Tap", 256, NULL, 4, NULL);
-    xTaskCreate(vSoundTask, "Sound", 512, NULL, 1, NULL);
+    xTaskCreate(LIGHT_SENSOR_Task, "Light",  configMINIMAL_STACK_SIZE, NULL, 2, NULL);
+    xTaskCreate(vTapTask, "Tap", configMINIMAL_STACK_SIZE, NULL, 4, NULL);
+    xTaskCreate(vSoundTask, "Sound", configMINIMAL_STACK_SIZE, NULL, 2, NULL);
 
-    xTaskCreate(vLEDTask, "LED", 128, NULL, 2, NULL);
+    xTaskCreate(vLEDTask, "LED", configMINIMAL_STACK_SIZE, NULL, 2, NULL);
     // xTaskCreate(vPrintTask, "Print", 256, NULL, 3, NULL);
-    xTaskCreate(vTxTask, "TXTask", configMINIMAL_STACK_SIZE+128, NULL, 3, NULL);
-    xTaskCreate(vRXTask, "RXTask", RX_TASK_STACK, NULL, 2, NULL);
+    xTaskCreate(vTxTask, "TXTask", configMINIMAL_STACK_SIZE+128, NULL, 2, NULL);
+    xTaskCreate(vRXTask, "RXTask", configMINIMAL_STACK_SIZE, NULL, 2, NULL);
 
     vTaskStartScheduler();
     while(1);
