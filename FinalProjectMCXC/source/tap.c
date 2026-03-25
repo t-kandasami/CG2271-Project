@@ -74,6 +74,9 @@ void vTapTask(void *pvParameters) {
             }
             gSensorData.tap_event = 1;
             xSemaphoreGive(gSensorMutex);
+            if (xTxTaskHandle != NULL) {
+				xTaskNotifyGive(xTxTaskHandle);
+			}
         }
     }
 }

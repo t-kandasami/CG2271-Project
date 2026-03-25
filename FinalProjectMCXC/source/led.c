@@ -48,10 +48,10 @@ void vLEDTask(void *pvParameters)
     {
         if (led_state) {
             led_on();
-            PRINTF("[LED] ON\r\n");
+//            PRINTF("[LED] ON\r\n");
         } else {
         	led_off();
-        	PRINTF("[LED] OFF\r\n");
+//        	PRINTF("[LED] OFF\r\n");
         }
         vTaskDelay(pdMS_TO_TICKS(LED_POLL_MS));
     }

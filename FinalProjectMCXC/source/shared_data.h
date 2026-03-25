@@ -19,6 +19,8 @@ extern SemaphoreHandle_t gADCMutex;
 extern volatile SensorData_t gSensorData;
 extern volatile int led_state;
 
+extern TaskHandle_t xTxTaskHandle; // used if u wanna immediately tx data
+
 void vPrintTask(void *pvParameters);
 
 #endif

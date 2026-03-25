@@ -3,4 +3,4 @@ C:\Users\vetri\Documents\MCUXpressoIDE_25.6.136\workspace\CG2271-Project\FinalPr
 C:\Users\vetri\Documents\MCUXpressoIDE_25.6.136\workspace\CG2271-Project\FinalProjectMCXC\CMSIS/core_cm0plus.h:866:22:__NVIC_SetPriority	24	static
 ../source/tap.c:14:6:TAP_Init	8	static
 ../source/tap.c:32:6:PORTC_PORTD_IRQHandler	16	static
-../source/tap.c:48:6:vTapTask	24	static
+../source/tap.c:48:6:vTapTask	32	static

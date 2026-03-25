@@ -42,8 +42,8 @@ void vRXTask(void *pvParameters)
         uint8_t chk = uart2_read_byte();
         if (chk != RX_CHECKSUM(cmd))
         {
-            PRINTF("[RX] Checksum fail: cmd=0x%02X got=0x%02X exp=0x%02X\r\n",
-                   cmd, chk, RX_CHECKSUM(cmd));
+//            PRINTF("[RX] Checksum fail: cmd=0x%02X got=0x%02X exp=0x%02X\r\n",
+//                   cmd, chk, RX_CHECKSUM(cmd));
             continue;
         }
 
@@ -51,6 +51,6 @@ void vRXTask(void *pvParameters)
         if (uart2_read_byte() != PACKET_END) continue;
 
         led_state = (cmd == RX_CMD_LED_ON) ? 1 : 0;
-        PRINTF("[RX] LED %s\r\n", led_state ? "ON" : "OFF");
+//        PRINTF("[RX] LED %s\r\n", led_state ? "ON" : "OFF");
     }
 }

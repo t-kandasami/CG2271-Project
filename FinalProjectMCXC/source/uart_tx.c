@@ -74,25 +74,28 @@ void vTxTask(void *pvParameters)
     (void)pvParameters;
 
     uint8_t    packet[PACKET_LEN];
-    TickType_t xLastWake = xTaskGetTickCount();
+    uint32_t notifiedValue;
 
     uint8_t  tap = 0, on_off = 0, triggered = 0;
     uint16_t light = 0, sound = 0;
 
-    for (;;)
+    while(1)
     {
+    	notifiedValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(100));
+    	bool forced_by_tap = (notifiedValue > 0);
         if (xSemaphoreTake(gSensorMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
             tap       = (uint8_t)gSensorData.tap_event;
             on_off    = (uint8_t)gSensorData.on_off;
             light     = gSensorData.light_raw;
             sound     = gSensorData.sound_raw;
             triggered = gSensorData.sound_triggered;
+            if (tap) {
+				gSensorData.tap_event = 0;
+			}
             xSemaphoreGive(gSensorMutex);
         }
 
         build_packet(tap, on_off, light, sound, triggered, packet);
         uart2_send_blocking(packet, PACKET_LEN);
-
-        vTaskDelayUntil(&xLastWake, pdMS_TO_TICKS(100));
     }
 }
