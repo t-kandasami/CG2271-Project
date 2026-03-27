@@ -5,7 +5,7 @@
 
 #define WIFI_SSID     ""
 #define WIFI_PASSWORD ""
-#define GEMINI_KEY    "AIzaSyA1Amrj1grbtLubNDz7ebWcGj6mKtzWuGM"
+#define GEMINI_KEY    ""
 #define GEMINI_MODEL  "gemini-2.0-flash"
 
 void connectWiFi(void);
