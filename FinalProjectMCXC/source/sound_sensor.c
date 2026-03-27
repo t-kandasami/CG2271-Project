@@ -141,20 +141,19 @@ void vSoundTask(void *pvParameters){
     uint16_t baseline = 0U;
 
     /* ---- Phase 1: Calibration ---- */
-    xSemaphoreTake(gADCMutex, portMAX_DELAY); // light sensor starved
-    sound_sensor_init();
-    // PRINTF("Sound: calibrating 5s...\r\n");
-
     for (uint32_t t = 0U; t < CAL_TIME_MS; t += SAMPLE_DELAY_MS)
-    {
-        sample = sound_sensor_read();
-        sum   += sample;
-        count++;
-        vTaskDelay(pdMS_TO_TICKS(SAMPLE_DELAY_MS));
-    }
+	{
+		xSemaphoreTake(gADCMutex, portMAX_DELAY);
+		sound_sensor_init();
+		sample = sound_sensor_read();
+		xSemaphoreGive(gADCMutex);
+		sum += sample;
+		count++;
 
-    baseline = (uint16_t)(sum / count);
-    xSemaphoreGive(gADCMutex);
+		vTaskDelay(pdMS_TO_TICKS(SAMPLE_DELAY_MS));
+	}
+
+	baseline = (uint16_t)(sum / count);
 
     // PRINTF("Sound: baseline=%u  trigger_delta=%u\r\n\r\n", baseline, TRIGGER_DELTA);
 

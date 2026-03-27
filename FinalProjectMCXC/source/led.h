@@ -13,7 +13,7 @@
 #define LED_PIN             21U
 #define LED_PORT_CLK        SIM_SCGC5_PORTE_MASK
 #define LED_TPM_CLK         SIM_SCGC6_TPM1_MASK
-#define LED_MUX             3U          /* ALT3 = TPM1_CH0 on PTE20 */
+#define LED_MUX             3U
 
 #define LED_PWM_FREQ_HZ     1000U
 #define LED_DUTY_PCT        50U

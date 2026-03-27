@@ -52,16 +52,16 @@ void setup() {
     UART_RX_Init();
     UART_TX_Init();  
     Telegram_Init();
-    connectWiFi(); 
+    connectWiFiGemini();
 
     xTaskCreate(vTelegramTask, "Telegram", TELEGRAM_TASK_STACK_SIZE, NULL, TELEGRAM_TASK_PRIORITY, NULL);
 
     xTaskCreate(vDHTTask,      "DHT",      DHT_TASK_STACK_SIZE, NULL, TELEGRAM_TASK_PRIORITY, NULL);
     xTaskCreate(vMonitorTask,  "Monitor",  2048,                NULL, TELEGRAM_TASK_PRIORITY,                 NULL);
-    xTaskCreate(vSerialRxTask, "SerialRX", 2048,                NULL, TELEGRAM_TASK_PRIORITY,                 NULL);
+    xTaskCreate(vSerialRxTask, "SerialRX", 2048,                NULL, 2,                 NULL);
     // vLEDTask disabled — GPIO26 used by buzzer in vUartRxTask
-    xTaskCreate(vUartRxTask,   "UartRX",   4096,                NULL, TELEGRAM_TASK_PRIORITY,                 NULL);
-    xTaskCreate(vGeminiTestTask, "GeminiTest", 8192,                NULL, 2,                 NULL);
+    xTaskCreate(vUartRxTask,   "UartRX",   4096,                NULL, 4,                 NULL);
+    xTaskCreate(vGeminiTestTask, "GeminiTest", 8192,            NULL, 2,                 NULL);
 }
 
 void loop() {

@@ -6,49 +6,33 @@
 #define LIGHT_SAMPLE_PERIOD_MS  500U
 
 QueueHandle_t xLightQueue = NULL;
-volatile int lightResult = 0;
+volatile uint32_t lightResult = 0;
 
 void initLightADC(void)
 {
-    /* Disable & clear interrupt — same as your initADC() */
     NVIC_DisableIRQ(ADC0_IRQn);
     NVIC_ClearPendingIRQ(ADC0_IRQn);
 
-    /* Enable clock gating to ADC0 and PORTE */
+    /* Disable SLCD — PTB1 is LCD_P1 */
+    SIM->SCGC5 |=  SIM_SCGC5_SLCD_MASK;
+    LCD->GCR   &= ~LCD_GCR_LCDEN_MASK;
+    SIM->SCGC5 &= ~SIM_SCGC5_SLCD_MASK;
+
+    /* Enable clocks */
     SIM->SCGC6 |= SIM_SCGC6_ADC0_MASK;
-    SIM->SCGC5 |= SIM_SCGC5_PORTE_MASK;
+    SIM->SCGC5 |= SIM_SCGC5_PORTB_MASK;
 
-    /* Set PTE22 to ALT0 (analog) — MUX=0, same as your PTE20/21 */
-    PORTE->PCR[LIGHT_ADC_PIN] &= ~PORT_PCR_MUX_MASK;
-    PORTE->PCR[LIGHT_ADC_PIN] |= PORT_PCR_MUX(0);
+    /* PTB1 → pure analog, NO pull resistors */
+    PORTB->PCR[LIGHT_ADC_PIN] = 0U;
 
-    /* Enable ADC interrupt */
-    ADC0->SC1[0] |= ADC_SC1_AIEN_MASK;
+    /* Disable ADC module before configuration */
+    ADC0->SC1[0] = ADC_SC1_ADCH(0x1FU);
 
-    /* Single-ended mode — DIFF=0 */
-    ADC0->SC1[0] &= ~ADC_SC1_DIFF_MASK;
-    ADC0->SC1[0] |= ADC_SC1_DIFF(0b0);
+    ADC0->CFG1 = ADC_CFG1_MODE(0b11);         // 16-bit
+    ADC0->CFG2 &= ~ADC_CFG2_MUXSEL_MASK;      // SE9 has no b-side
+    ADC0->SC2  = ADC_SC2_REFSEL(0b01);        // VDDA ref, software trigger
+    ADC0->SC3  = 0U;                            // no averaging, no continuous
 
-    /* 16-bit conversion — MODE=11 */
-    ADC0->CFG1 &= ~ADC_CFG1_MODE_MASK;
-    ADC0->CFG1 |= ADC_CFG1_MODE(0b11);
-
-    /* Software trigger — ADTRG=0 */
-    ADC0->SC2 &= ~ADC_SC2_ADTRG_MASK;
-
-    /* Alternate voltage reference (VDDA) — same as your code */
-    ADC0->SC2 &= ~ADC_SC2_REFSEL_MASK;
-    ADC0->SC2 |= ADC_SC2_REFSEL(0b01);
-
-    /* No averaging */
-    ADC0->SC3 &= ~ADC_SC3_AVGE_MASK;
-    ADC0->SC3 |= ADC_SC3_AVGE(0);
-
-    /* No continuous conversion */
-    ADC0->SC3 &= ~ADC_SC3_ADCO_MASK;
-    ADC0->SC3 |= ADC_SC3_ADCO(0);
-
-    /* Highest priority */
     NVIC_SetPriority(ADC0_IRQn, 1);
     NVIC_EnableIRQ(ADC0_IRQn);
 }
@@ -79,26 +63,24 @@ void LIGHT_SENSOR_Task(void *pvParameters)
     xLightQueue = xQueueCreate(1, sizeof(uint16_t));
     configASSERT(xLightQueue != NULL);
 
-    initLightADC();
-
     while(1) {
-            xSemaphoreTake(gADCMutex, portMAX_DELAY);
-            startLightADC();
+        xSemaphoreTake(gADCMutex, portMAX_DELAY);
+        initLightADC();
+        startLightADC();
+
+        if (xQueueReceive(xLightQueue, &sample, pdMS_TO_TICKS(100)) == pdTRUE)
+        {
             xSemaphoreGive(gADCMutex);
 
-            if (xQueueReceive(xLightQueue, &sample, pdMS_TO_TICKS(1000)) == pdTRUE)
-            {
-                if (xSemaphoreTake(gSensorMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-                    gSensorData.light_raw = sample;
-                    xSemaphoreGive(gSensorMutex);
-                }
-
-                vTaskDelay(pdMS_TO_TICKS(LIGHT_SAMPLE_PERIOD_MS));
-            }
-            else
-            {
-                vTaskDelay(pdMS_TO_TICKS(10));
+            if (xSemaphoreTake(gSensorMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+                gSensorData.light_raw = sample;
+                xSemaphoreGive(gSensorMutex);
             }
         }
-
+        else {
+        	xSemaphoreGive(gADCMutex);
+        }
+        // Delay until the next sample period
+        vTaskDelay(pdMS_TO_TICKS(LIGHT_SAMPLE_PERIOD_MS));
+    }
 }

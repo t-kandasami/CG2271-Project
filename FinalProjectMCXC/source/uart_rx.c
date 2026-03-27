@@ -10,7 +10,7 @@
  * -------------------------------------------------------------------------*/
 static uint8_t uart2_read_byte(void)
 {
-    while (!(UART2->S1 & UART_S1_RDRF_MASK));
+	while (!(UART2->S1 & UART_S1_RDRF_MASK));
     return (uint8_t)UART2->D;   /* reading D clears RDRF */
 }
 

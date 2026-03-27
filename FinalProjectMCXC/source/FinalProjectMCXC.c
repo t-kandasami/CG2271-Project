@@ -26,7 +26,7 @@ int main(void) {
     led_init();
     initUART2_RXTX(MCXC_UART_BAUD);
 
-    xTaskCreate(LIGHT_SENSOR_Task, "Light",  configMINIMAL_STACK_SIZE, NULL, 2, NULL);
+    xTaskCreate(LIGHT_SENSOR_Task, "Light",  configMINIMAL_STACK_SIZE+128, NULL, 2, NULL);
     xTaskCreate(vTapTask, "Tap", configMINIMAL_STACK_SIZE, NULL, 4, NULL);
     xTaskCreate(vSoundTask, "Sound", configMINIMAL_STACK_SIZE, NULL, 2, NULL);
 

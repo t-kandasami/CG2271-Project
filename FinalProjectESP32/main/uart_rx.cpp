@@ -37,10 +37,13 @@ static void parseAndStore(uint8_t *pkt) {
     uint16_t sound     = ((uint16_t)pkt[6] << 8) | pkt[7];
     uint8_t  triggered = pkt[8];
 
-    /* Flash LED to confirm valid packet received */
-    digitalWrite(MCXC_LED_PIN, HIGH);
-    vTaskDelay(pdMS_TO_TICKS(100));
-    digitalWrite(MCXC_LED_PIN, LOW);
+    /*
+     * Send LED command back to MCXC444 on every valid packet.
+     * focus_mode == 1 → LED ON (0x01)
+     * focus_mode == 0 → LED OFF (0x00)
+     * MCXC444 vRXTask will pick this up and update gSensorData.on_off.
+     */
+    UART_TX_SendCmd(focus == 1 ? TX_CMD_LED_ON : TX_CMD_LED_OFF);
 
     Serial.println("[UART] Valid packet received:");
     Serial.print("  tap_event:       "); Serial.println(tap);
@@ -60,13 +63,6 @@ static void parseAndStore(uint8_t *pkt) {
         Serial.println("[UART] Warning: could not take mutex — skipping write");
     }
 
-    /*
-     * Send LED command back to MCXC444 on every valid packet.
-     * focus_mode == 1 → LED ON (0x01)
-     * focus_mode == 0 → LED OFF (0x00)
-     * MCXC444 vRXTask will pick this up and update gSensorData.on_off.
-     */
-    UART_TX_SendCmd(focus == 1 ? TX_CMD_LED_ON : TX_CMD_LED_OFF);
 }
 
 /* ═════════════════════════════════════════════════════════════════════════ */

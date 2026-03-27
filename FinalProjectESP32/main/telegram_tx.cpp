@@ -12,7 +12,7 @@
 static WiFiClientSecure client;
 static UniversalTelegramBot bot(BOT_TOKEN, client);
 
-static void connectWiFi() {
+static void connectWiFiTele() {
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     int attempts = 0;
@@ -25,16 +25,13 @@ static void connectWiFi() {
     if (WiFi.status() == WL_CONNECTED) {
         client.setInsecure();
         Serial.println("connected");
-        UART_TX_SendCmd(TX_CMD_LED_ON);   // signal success to MCXC444
         bot.sendMessage(CHAT_ID, "ESP32 online!", "");
-    } else {
-        UART_TX_SendCmd(TX_CMD_LED_OFF);  // signal failure to MCXC444
     }
 }
 
 
 void Telegram_Init() {
-    connectWiFi();
+    connectWiFiTele();
     bot.sendMessage(CHAT_ID, "ESP32 online!", "");
 }
 
