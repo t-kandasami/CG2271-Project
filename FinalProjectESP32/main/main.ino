@@ -7,6 +7,7 @@
 #include "led_rx.h"
 #include "uart_rx.h"
 #include "uart_tx.h"
+#include "api_handler.h"
 
 /* ── Shared handles ──────────────────────────────────────────────────────── */
 SensorData_t      gSensorData  = {0};
@@ -31,6 +32,14 @@ void vMonitorTask(void *pvParameters) {
     }
 }
 
+void vGeminiTestTask(void *pvParameters) {
+    (void)pvParameters;
+    String reply = postGemini("Hello! Reply in one sentence.");
+    Serial.println("[Gemini] Response:");
+    Serial.println(reply);
+    vTaskDelete(NULL);
+}
+
 void setup() {
     Serial.begin(115200);
     delay(1000);
@@ -40,13 +49,14 @@ void setup() {
     DHT_Init();
     LED_RX_Init();
     UART_RX_Init();
-    UART_TX_Init();  
+    UART_TX_Init();
+    connectWiFi(); 
 
     xTaskCreate(vDHTTask,      "DHT",      DHT_TASK_STACK_SIZE, NULL, DHT_TASK_PRIORITY, NULL);
     xTaskCreate(vMonitorTask,  "Monitor",  2048,                NULL, 1,                 NULL);
     xTaskCreate(vSerialRxTask, "SerialRX", 2048,                NULL, 3,                 NULL);
-    // vLEDTask disabled — GPIO26 used by buzzer in vUartRxTask
     xTaskCreate(vUartRxTask,   "UartRX",   4096,                NULL, 4,                 NULL);
+    xTaskCreate(vGeminiTestTask, "GeminiTest", 8192,                NULL, 2,                 NULL);
 }
 
 void loop() {
