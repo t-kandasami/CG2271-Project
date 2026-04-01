@@ -13,16 +13,25 @@ static bool sReady = false;
 
 /* ── Fresh-connection send ───────────────────────────────────────────────── */
 /*
- * Every call creates its own WiFiClientSecure + UniversalTelegramBot on
- * the stack — completely isolated from Gemini's HTTPS connection.
- * No shared socket state can bleed between the two pipelines.
+ * Every call creates its own WiFiClientSecure + UniversalTelegramBot.
+ * gTelegramMutex ensures only ONE SSL context exists at a time — concurrent
+ * callers (vGeminiTask + vTelegramTask) block here instead of both
+ * allocating ~30 KB of TLS heap simultaneously, which exhausts the heap.
  */
 static bool sendOneFreshConnection(const String &msg) {
+    if (gTelegramMutex != NULL) {
+        if (xSemaphoreTake(gTelegramMutex, pdMS_TO_TICKS(30000)) != pdTRUE) {
+            Serial.println("[Telegram] Mutex timeout — send skipped");
+            return false;
+        }
+    }
     WiFiClientSecure client;
     client.setInsecure();
     client.setTimeout(15);
     UniversalTelegramBot bot(BOT_TOKEN, client);
-    return bot.sendMessage(CHAT_ID, msg, "");
+    bool ok = bot.sendMessage(CHAT_ID, msg, "");
+    if (gTelegramMutex != NULL) xSemaphoreGive(gTelegramMutex);
+    return ok;
 }
 
 /* ── Init ────────────────────────────────────────────────────────────────── */

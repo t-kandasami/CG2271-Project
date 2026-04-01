@@ -24,7 +24,8 @@ SensorData_t      gSensorData  = {0};
  * Protects gSensorData from concurrent access by vDHTTask (writer)
  * and vMonitorTask / vGeminiTask / vTelegramTask (readers).
  */
-SemaphoreHandle_t gSensorMutex = NULL;
+SemaphoreHandle_t gSensorMutex   = NULL;
+SemaphoreHandle_t gTelegramMutex = NULL;
 
 /*
  * gSessionReportQueue — Queue (producer-consumer IPC)
@@ -132,6 +133,9 @@ void setup() {
 
     /* Binary mutex — protects gSensorData */
     gSensorMutex = xSemaphoreCreateMutex();
+
+    /* Binary mutex — serialises all Telegram SSL sends (one connection at a time) */
+    gTelegramMutex = xSemaphoreCreateMutex();
 
     /*
      * Queue — carries SessionSummary_t from vUartRxTask to vGeminiTask.
