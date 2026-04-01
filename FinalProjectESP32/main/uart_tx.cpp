@@ -59,10 +59,10 @@ void UART_TX_SendCmd(uint8_t cmd) {
                                    TX_PKT_LEN);
 
     if (written == TX_PKT_LEN) {
-        Serial.print("[UART_TX] Sent cmd=0x");
-        Serial.print(cmd, HEX);
-        Serial.println(cmd == TX_CMD_LED_ON ? "  (LED ON)" : "  (LED OFF)");
+        // Serial.print("[UART_TX] Sent cmd=0x");
+        //Serial.print(cmd, HEX);
+        //Serial.println(cmd == TX_CMD_LED_ON ? "  (LED ON)" : "  (LED OFF)");
     } else {
-        Serial.println("[UART_TX] Warning: packet write incomplete");
+        //Serial.println("[UART_TX] Warning: packet write incomplete");
     }
 }

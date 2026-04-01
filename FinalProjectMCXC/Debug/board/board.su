@@ -1,2 +1,2 @@
-C:\Users\vetri\Documents\MCUXpressoIDE_25.6.136\workspace\CG2271-Project\FinalProjectMCXC\drivers/fsl_clock.h:469:20:CLOCK_SetLpuart0Clock	16	static
+C:\Users\User\code\CG2271-Project\FinalProjectMCXC\drivers/fsl_clock.h:469:20:CLOCK_SetLpuart0Clock	16	static
 ../board/board.c:25:6:BOARD_InitDebugConsole	16	static

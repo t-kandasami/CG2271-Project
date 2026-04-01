@@ -1,8 +1,9 @@
 #include <Arduino.h>
-#include <WiFi.h>  // Add this line
+#include <WiFi.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
+
 #include "shared_data.h"
 #include "dht_sensor.h"
 #include "led_rx.h"
@@ -19,42 +20,57 @@ SemaphoreHandle_t gSensorMutex = NULL;
 /* ── Monitor task ────────────────────────────────────────────────────────── */
 void vMonitorTask(void *pvParameters) {
     (void)pvParameters;
+
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(5000));
+
+        if (xSemaphoreTake(gSensorMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+            Serial.println("======= Shared Data Snapshot =======");
+            Serial.print("  ESP Temp:       "); Serial.print(gSensorData.esp_temp, 1);     Serial.println(" C");
+            Serial.print("  ESP Humidity:   "); Serial.print(gSensorData.esp_humidity, 1); Serial.println(" %");
+            Serial.print("  LED Status:     ");
+            if      (gSensorData.led_status == 2) Serial.println("RED");
+            else if (gSensorData.led_status == 1) Serial.println("AMBER");
+            else                                  Serial.println("GREEN");
+            Serial.print("  Tap Event:      "); Serial.println(gSensorData.tap_event);
+            Serial.print("  Focus Mode:     "); Serial.println(gSensorData.focus_mode);
+            Serial.print("  Light Raw:      "); Serial.println(gSensorData.light_raw);
+            Serial.print("  Sound Raw:      "); Serial.println(gSensorData.sound_raw);
+            Serial.print("  Sound Trigger:  "); Serial.println(gSensorData.sound_triggered);
+            Serial.println("=====================================");
+            xSemaphoreGive(gSensorMutex);
+        }
     }
 }
-
-/* ── Declare the keep-alive task from api_handler ───────────────────────── */
-void vWiFiKeepAliveTask(void *pvParameters);  // Forward declaration
 
 void setup() {
     Serial.begin(115200);
     delay(3000);
 
     gSensorMutex = xSemaphoreCreateMutex();
-    Serial.println("System Starting...");
+    Serial.println("=== Study Coach ESP32 Boot ===");
+
+    // Hardware init
     DHT_Init();
     LED_RX_Init();
     UART_RX_Init();
-    UART_TX_Init();  
-    Telegram_Init();
+    UART_TX_Init();
     Session_Init();
-    
-    // Connect WiFi with permanent settings
-    connectWiFiGemini();
-    
-    // Wait for WiFi to stabilize
-    delay(3000);
-    
-    // Start WiFi keep-alive task to maintain connection
-    xTaskCreate(vWiFiKeepAliveTask, "WiFiKeep", 2048, NULL, 3, NULL);
 
-    // Create other tasks
-    xTaskCreate(vDHTTask,      "DHT",      DHT_TASK_STACK_SIZE, NULL, 2, NULL);
-    xTaskCreate(vMonitorTask,  "Monitor",  2048,                NULL, 1, NULL);
-    xTaskCreate(vSerialRxTask, "SerialRX", 2048,                NULL, 2, NULL);
-    xTaskCreate(vUartRxTask,   "UartRX",   4096,                NULL, 4, NULL);
-    xTaskCreate(vGeminiTask,   "gemini",   GEMINI_TASK_STACK_SIZE, NULL, 2, NULL);
+    // Telegram handles its own WiFi connection
+    Telegram_Init();
+
+    // Gemini uses the same WiFi connection
+    // connectWiFiGemini() checks if already connected and skips if so
+    connectWiFiGemini();
+
+    // Tasks
+    xTaskCreate(vWiFiKeepAliveTask, "WiFiKeep", 2048,              NULL, 3, NULL);
+    xTaskCreate(vDHTTask,           "DHT",       DHT_TASK_STACK_SIZE, NULL, 2, NULL);
+    xTaskCreate(vMonitorTask,       "Monitor",   2048,              NULL, 1, NULL);
+    xTaskCreate(vSerialRxTask,      "SerialRX",  2048,              NULL, 2, NULL);
+    xTaskCreate(vUartRxTask,        "UartRX",    4096,              NULL, 4, NULL);
+    xTaskCreate(vGeminiTask,        "Gemini",    GEMINI_TASK_STACK_SIZE, NULL, 2, NULL);
 }
 
 void loop() {

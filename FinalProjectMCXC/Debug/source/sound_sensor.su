@@ -1,5 +1,5 @@
-C:\Users\vetri\Documents\MCUXpressoIDE_25.6.136\workspace\CG2271-Project\FinalProjectMCXC\CMSIS/core_cm0plus.h:757:22:__NVIC_EnableIRQ	16	static
-C:\Users\vetri\Documents\MCUXpressoIDE_25.6.136\workspace\CG2271-Project\FinalProjectMCXC\CMSIS/core_cm0plus.h:795:22:__NVIC_DisableIRQ	16	static
+C:\Users\User\code\CG2271-Project\FinalProjectMCXC\CMSIS/core_cm0plus.h:757:22:__NVIC_EnableIRQ	16	static
+C:\Users\User\code\CG2271-Project\FinalProjectMCXC\CMSIS/core_cm0plus.h:795:22:__NVIC_DisableIRQ	16	static
 ../source/sound_sensor.c:17:13:adc_calibrate	16	static
 ../source/sound_sensor.c:79:6:sound_sensor_init	8	static
 ../source/sound_sensor.c:113:10:sound_sensor_read	8	static
