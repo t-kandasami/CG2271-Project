@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <ESP32_AI_Connect.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "api_handler.h"
 #include "passwords.h"
 #include "session_tracker.h"
@@ -133,7 +135,7 @@ static String postGeminiDirect(const String &prompt) {
         Serial.print("[Gemini] Direct error: "); Serial.println(error);
         if (error.indexOf("429") >= 0 || error.indexOf("529") >= 0) {
             Serial.println("[Gemini] Rate limited — waiting 30s");
-            delay(30000);
+            vTaskDelay(pdMS_TO_TICKS(30000));
         }
     } else {
         Serial.println("[Gemini] Direct response OK:");
@@ -193,7 +195,7 @@ void postGeminiSessionReport(const SessionSummary_t &s) {
 
     if (response.isEmpty()) {
         Serial.println("[Gemini] Retrying in 30s...");
-        delay(30000);
+        vTaskDelay(pdMS_TO_TICKS(30000));
         response = postGeminiDirect(prompt);
     }
 
