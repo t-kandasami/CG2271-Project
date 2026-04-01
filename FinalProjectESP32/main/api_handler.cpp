@@ -210,8 +210,8 @@ void postGeminiSessionReport(const SessionSummary_t &s) {
     response.replace("#", "");
 
     teleMsg  = "Study Session Report\n";
-//    teleMsg        += "Duration: " + String(s.duration_s / 60) + " min\n\n";
- //   teleMsg        += response;
+    teleMsg += "Duration: " + String(s.duration_s / 60) + " min\n\n";
+    teleMsg += response;
 
     Serial.println("[Gemini] Sending to Telegram:");
     Serial.println(teleMsg);
