@@ -6,6 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
+#include "freertos/event_groups.h"
 
 /* ── Internal state ──────────────────────────────────────────────────────── */
 static DHT sDHT(DHT_PIN, DHT11);
@@ -148,12 +149,51 @@ void vDHTTask(void *pvParameters) {
       xSemaphoreGive(gSensorMutex);
     }
 
+    /*
+     * Event Group — set SENSOR_READY_BIT after every valid reading.
+     * vMonitorTask waits on this bit instead of a fixed 5s timer,
+     * so it prints immediately after fresh data arrives.
+     * pdFALSE: do not clear the bit here — vMonitorTask clears it.
+     */
+    if (gSystemEvents != NULL) {
+      xEventGroupSetBits(gSystemEvents, SENSOR_READY_BIT);
+    }
+
     // Feed this sample into the active session (after releasing mutex)
     if (Session_IsActive()) {
       Session_AddSample(temperature, humidity,
                         light_raw_f, sound_raw_f, sound_trig);
+
+      /*
+       * Counting Semaphore — signal one new sample accumulated.
+       * vMonitorTask reads uxSemaphoreGetCount() to report how many
+       * samples have built up since the last snapshot, then drains it.
+       */
+      if (gSampleSemaphore != NULL) {
+        xSemaphoreGive(gSampleSemaphore);
+      }
     }
-    // Same as your delay(2000) — FreeRTOS friendly version
-    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    /*
+     * Task Notification wait — replaces plain vTaskDelay(2000).
+     * ulTaskNotifyTake blocks for up to 2000ms BUT returns early
+     * if vUartRxTask calls xTaskNotifyGive (session just started).
+     * pdTRUE: clear the notification value on exit (binary behaviour).
+     * This ensures the first sample of a new session is captured
+     * without waiting out the full 2-second interval.
+     */
+    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(2000));
+
+    /*
+     * Task Suspend/Resume — self-suspend when no session is active.
+     * Prevents the DHT task from waking every 2s during idle periods.
+     * vUartRxTask calls vTaskResume(gTaskHandles.dht) on focus 0→1
+     * to bring this task back to life when a new session starts.
+     */
+    if (!Session_IsActive()) {
+      Serial.println("[DHT] No active session — suspending");
+      vTaskSuspend(NULL);   // suspend self; execution resumes here after resume
+      Serial.println("[DHT] Resumed by session start");
+    }
   }
 }

@@ -13,17 +13,12 @@ static float    sSumSound      = 0.0f;
 static uint32_t sSoundTriggers = 0;
 static uint32_t sSampleCount   = 0;
 
-/* ── Pending report ──────────────────────────────────────────────────────── */
-static SemaphoreHandle_t sReportMutex   = NULL;
-static volatile bool     sPendingReport = false;
-static SessionSummary_t  sPendingSummary;
+/* Pending report handoff moved to gSessionReportQueue in shared_data.h */
 
 /* ═════════════════════════════════════════════════════════════════════════ */
 
 void Session_Init(void) {
-    sActive        = false;
-    sPendingReport = false;
-    sReportMutex   = xSemaphoreCreateMutex();
+    sActive = false;
     Serial.println("[Session] Tracker initialised");
 }
 
@@ -91,30 +86,5 @@ bool Session_IsActive(void) {
     return sActive;
 }
 
-void Session_StorePendingReport(const SessionSummary_t *s) {
-    if (sReportMutex == NULL) {
-        Serial.println("[Session] ERROR: mutex not initialised");
-        return;
-    }
-    if (xSemaphoreTake(sReportMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        sPendingSummary = *s;
-        sPendingReport  = true;
-        xSemaphoreGive(sReportMutex);
-        Serial.println("[Session] Report queued for Gemini");
-    }
-}
-
-bool Session_ConsumePendingReport(SessionSummary_t *out) {
-    if (sReportMutex == NULL) return false;
-
-    bool found = false;
-    if (xSemaphoreTake(sReportMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        if (sPendingReport) {
-            *out           = sPendingSummary;
-            sPendingReport = false;
-            found          = true;
-        }
-        xSemaphoreGive(sReportMutex);
-    }
-    return found;
-}
+/* Session_StorePendingReport and Session_ConsumePendingReport removed.
+ * Handoff is now via gSessionReportQueue — see uart_rx.cpp and api_handler.cpp. */

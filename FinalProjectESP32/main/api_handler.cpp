@@ -3,9 +3,12 @@
 #include <ESP32_AI_Connect.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
+#include "freertos/event_groups.h"
 #include "api_handler.h"
 #include "passwords.h"
 #include "session_tracker.h"
+#include "shared_data.h"
 #include "telegram_tx.h"
 
 ESP32_AI_Connect aiClient("gemini", GEMINI_KEY, GEMINI_MODEL);
@@ -68,7 +71,19 @@ void vWiFiKeepAliveTask(void *pvParameters) {
     while (1) {
         if (WiFi.status() != WL_CONNECTED) {
             Serial.println("[WiFi] Lost — reconnecting...");
+            /*
+             * Event Group — clear the WiFi bit while reconnecting.
+             * Any task blocked on xEventGroupWaitBits(WIFI_CONNECTED_BIT)
+             * will remain blocked until we set the bit again below.
+             */
+            if (gSystemEvents != NULL) {
+                xEventGroupClearBits(gSystemEvents, WIFI_CONNECTED_BIT);
+            }
             connectWiFiGemini();
+            if (WiFi.status() == WL_CONNECTED && gSystemEvents != NULL) {
+                xEventGroupSetBits(gSystemEvents, WIFI_CONNECTED_BIT);
+                Serial.println("[WiFi] WIFI_CONNECTED_BIT set");
+            }
         } else {
             static unsigned long lastPing = 0;
             if (millis() - lastPing > 30000) {
@@ -120,7 +135,25 @@ String postGemini(const String &prompt) {
 }
 
 static String postGeminiDirect(const String &prompt) {
-    if (!WiFi_EnsureConnected()) {
+    /*
+     * Event Group wait — block until WIFI_CONNECTED_BIT is set.
+     * Replaces the manual polling loop in WiFi_EnsureConnected().
+     * pdFALSE: do not clear the bit (other tasks also need it).
+     * pdTRUE:  wait for ALL listed bits (only one bit here).
+     * Timeout: 30s — give the keep-alive task time to reconnect.
+     */
+    if (gSystemEvents != NULL) {
+        EventBits_t bits = xEventGroupWaitBits(
+            gSystemEvents,
+            WIFI_CONNECTED_BIT,
+            pdFALSE,
+            pdTRUE,
+            pdMS_TO_TICKS(30000));
+        if (!(bits & WIFI_CONNECTED_BIT)) {
+            Serial.println("[Gemini] WiFi wait timeout — direct skipped");
+            return "";
+        }
+    } else if (!WiFi_EnsureConnected()) {
         Serial.println("[Gemini] No WiFi — direct skipped");
         return "";
     }
@@ -227,20 +260,27 @@ void postGeminiSessionReport(const SessionSummary_t &s) {
 
 void vGeminiTask(void *pvParameters) {
     (void)pvParameters;
-    vTaskDelay(pdMS_TO_TICKS(8000));   // wait longer for Telegram to fully init
+    vTaskDelay(pdMS_TO_TICKS(8000));   // wait for Telegram to fully init
 
     while (1) {
-        Serial.println("[GeminiTask] Checking for pending report...");
-
         SessionSummary_t summary;
-        if (Session_ConsumePendingReport(&summary)) {
-            Serial.println("[GeminiTask] Report found — processing");
-            postGeminiSessionReport(summary);
-            Serial.println("[GeminiTask] Done");
-        } else {
-            Serial.println("[GeminiTask] No pending report");
-        }
 
-        vTaskDelay(pdMS_TO_TICKS(10000));
+        /*
+         * Queue Receive — block indefinitely until a SessionSummary_t
+         * arrives from vUartRxTask (posted on focus mode 1→0 edge).
+         *
+         * portMAX_DELAY: this task sleeps with zero CPU usage until
+         * xQueueSend wakes it. This replaces the old 10-second polling
+         * loop which woke up every 10s just to find nothing to do.
+         *
+         * The queue depth of 3 ensures that if two sessions end while
+         * Gemini is still processing, the reports are queued and not lost.
+         */
+        Serial.println("[GeminiTask] Waiting for session report on queue...");
+        if (xQueueReceive(gSessionReportQueue, &summary, portMAX_DELAY) == pdTRUE) {
+            Serial.println("[GeminiTask] Report dequeued — processing");
+            postGeminiSessionReport(summary);
+            Serial.println("[GeminiTask] Done — waiting for next report");
+        }
     }
 }

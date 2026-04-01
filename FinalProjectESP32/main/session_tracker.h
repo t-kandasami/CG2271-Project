@@ -49,8 +49,11 @@ void Session_AddSample(float temp, float humidity,
 bool Session_End(SessionSummary_t *out);   /* true if ≥1 valid sample */
 bool Session_IsActive(void);
 
-/* Pending-report handoff between uart_rx task and vGeminiTask */
-void Session_StorePendingReport(const SessionSummary_t *s);
-bool Session_ConsumePendingReport(SessionSummary_t *out);
+/*
+ * Pending-report handoff is now done via gSessionReportQueue (shared_data.h).
+ * uart_rx calls xQueueSend(gSessionReportQueue, &summary, 0) directly.
+ * vGeminiTask calls xQueueReceive(gSessionReportQueue, &summary, portMAX_DELAY).
+ * The old mutex+bool pattern is removed.
+ */
 
 #endif /* SESSION_TRACKER_H */

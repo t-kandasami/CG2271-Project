@@ -4,6 +4,7 @@
 #include "shared_data.h"
 #include "uart_packet.h"
 #include "session_tracker.h"
+#include "freertos/queue.h"
 
 #include "driver/uart.h"
 #include "freertos/FreeRTOS.h"
@@ -32,12 +33,37 @@ static void handleFocusTransition(uint8_t focus) {
   if (sPrevFocus == 0 && focus == 1) {
     Serial.println("[Focus] Session START triggered");
     Session_Start();
+
+    /*
+     * Task Notification — wake vDHTTask immediately on session start.
+     * xTaskNotifyGive increments the task's notification value (acts like
+     * a lightweight binary semaphore give). vDHTTask calls ulTaskNotifyTake
+     * which returns early instead of waiting out its 2-second delay.
+     * This ensures the first DHT sample is captured right at session start.
+     *
+     * Also resume the task in case it self-suspended between sessions.
+     */
+    if (gTaskHandles.dht != NULL) {
+      vTaskResume(gTaskHandles.dht);          // no-op if already running
+      xTaskNotifyGive(gTaskHandles.dht);      // wake immediately
+    }
+
   } else if (sPrevFocus == 1 && focus == 0) {
     Serial.println("[Focus] Session END triggered");
     SessionSummary_t summary;
     if (Session_End(&summary)) {
-      Serial.println("[Focus] Session ended, storing report");
-      Session_StorePendingReport(&summary);
+      /*
+       * Queue Send — hand the completed SessionSummary_t to vGeminiTask.
+       * xQueueSend copies the struct into the queue's internal buffer.
+       * vGeminiTask is blocked on xQueueReceive(portMAX_DELAY) and will
+       * unblock immediately when this item arrives — no polling needed.
+       * Timeout 0: non-blocking from this high-priority UART task.
+       */
+      if (xQueueSend(gSessionReportQueue, &summary, 0) == pdTRUE) {
+        Serial.println("[Focus] Session report sent to queue for Gemini");
+      } else {
+        Serial.println("[Focus] Queue full — report dropped");
+      }
     } else {
       Serial.println("[Focus] Session ended with no samples");
     }
