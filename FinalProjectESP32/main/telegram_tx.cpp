@@ -8,15 +8,26 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-static WiFiClientSecure     *pClient = NULL;
-static UniversalTelegramBot *pBot    = NULL;
-static bool                  sReady  = false;   // true only when bot is confirmed working
+static bool sReady = false;
+
+/*
+ * sendOneFreshConnection()
+ * Creates a brand-new WiFiClientSecure + UniversalTelegramBot on the stack
+ * for every call — completely isolated from any other HTTPS connection
+ * (e.g. Gemini). No shared socket state can bleed in.
+ */
+static bool sendOneFreshConnection(const String &msg) {
+    WiFiClientSecure client;
+    client.setInsecure();
+    client.setTimeout(15);
+    UniversalTelegramBot bot(BOT_TOKEN, client);
+    return bot.sendMessage(CHAT_ID, msg, "");
+}
 
 /* ── Init ────────────────────────────────────────────────────────────────── */
 void Telegram_Init(void) {
     Serial.println("[Telegram] Initialising...");
 
-    /* Wait for WiFi — must be connected before creating SSL client */
     int attempts = 0;
     while (WiFi.status() != WL_CONNECTED && attempts < 40) {
         delay(500);
@@ -29,24 +40,12 @@ void Telegram_Init(void) {
         return;
     }
 
-    Serial.println("\n[Telegram] WiFi confirmed — creating client");
-
-    /* Clean up any previous instance */
-    if (pBot)    { delete pBot;    pBot    = NULL; }
-    if (pClient) { delete pClient; pClient = NULL; }
-
-    pClient = new WiFiClientSecure();
-    pClient->setInsecure();
-    pClient->setTimeout(15);
-    delay(500);
-
-    pBot = new UniversalTelegramBot(BOT_TOKEN, *pClient);
-    delay(1000);
+    Serial.println("\n[Telegram] WiFi confirmed");
 
     /* Send boot message — retry 3 times */
     for (int i = 0; i < 3; i++) {
         Serial.printf("[Telegram] Boot message attempt %d/3\n", i + 1);
-        if (pBot->sendMessage(CHAT_ID, "ESP32 online!", "")) {
+        if (sendOneFreshConnection("ESP32 online!")) {
             Serial.println("[Telegram] Boot message sent!");
             sReady = true;
             return;
@@ -54,60 +53,24 @@ void Telegram_Init(void) {
         delay(3000);
     }
 
-    Serial.println("[Telegram] Boot message failed — bot created but unverified");
-    /*
-     * Still mark as ready — pBot is valid even if boot message failed.
-     * The boot message failure could be a transient network issue.
-     * Let later sends attempt anyway.
-     */
+    Serial.println("[Telegram] Boot message failed — will retry on first send");
     sReady = true;
 }
 
 void testTelegram(void) {
     Serial.println("[Test] Starting Telegram debug...");
-    
-    // Check 1 — WiFi
     Serial.print("[Test] WiFi status: ");
     Serial.println(WiFi.status() == WL_CONNECTED ? "CONNECTED" : "DISCONNECTED");
     Serial.print("[Test] IP: ");
     Serial.println(WiFi.localIP());
-    
-    // Check 2 — pointers
-    Serial.print("[Test] pClient: ");
-    Serial.println(pClient == NULL ? "NULL" : "OK");
-    Serial.print("[Test] pBot: ");
-    Serial.println(pBot == NULL ? "NULL" : "OK");
-    Serial.print("[Test] sReady: ");
-    Serial.println(sReady ? "true" : "false");
-    
-    // Check 3 — raw TCP connection to Telegram server
-    Serial.println("[Test] Attempting raw TCP to api.telegram.org:443...");
-    if (pClient->connect("api.telegram.org", 443)) {
-        Serial.println("[Test] TCP connection SUCCESS");
-        pClient->stop();
-    } else {
-        Serial.println("[Test] TCP connection FAILED — SSL or network issue");
-    }
-    
-    // Check 4 — direct sendMessage
-    Serial.println("[Test] Sending test message...");
-    bool sent = pBot->sendMessage(CHAT_ID, "Test message", "");
+    Serial.println("[Test] Sending test message via fresh connection...");
+    bool sent = sendOneFreshConnection("Test message");
     Serial.print("[Test] sendMessage result: ");
     Serial.println(sent ? "SUCCESS" : "FAILED");
 }
 
 /* ── Send ────────────────────────────────────────────────────────────────── */
 void Telegram_SendMessage(const String &msg) {
-    //Telegram_Init();
-    /* Safety checks before ANY dereference */
-    if (pClient == NULL) {
-        Serial.println("[Telegram] pClient is NULL — not initialised");
-        return;
-    }
-    if (pBot == NULL) {
-        Serial.println("[Telegram] pBot is NULL — not initialised");
-        return;
-    }
     if (!sReady) {
         Serial.println("[Telegram] Not ready — skipping");
         return;
@@ -127,10 +90,10 @@ void Telegram_SendMessage(const String &msg) {
     bool sent = false;
     for (int i = 0; i < 3 && !sent; i++) {
         Serial.printf("[Telegram] Attempt %d/3\n", i + 1);
-        sent = pBot->sendMessage(CHAT_ID, msg, "");
-        Serial.println(sent);
+        sent = sendOneFreshConnection(msg);
+        Serial.println(sent ? "[Telegram] OK" : "[Telegram] Failed");
         if (!sent && i < 2) {
-            Serial.println("[Telegram] Failed — retrying in 3s");
+            Serial.println("[Telegram] Retrying in 3s");
             vTaskDelay(pdMS_TO_TICKS(3000));
         }
     }
@@ -145,7 +108,7 @@ void vTelegramTask(void *pvParameters) {
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(30000));
 
-        if (!sReady || pBot == NULL || WiFi.status() != WL_CONNECTED) continue;
+        if (!sReady || WiFi.status() != WL_CONNECTED) continue;
 
         float t = 0.0f;
         float h = 0.0f;

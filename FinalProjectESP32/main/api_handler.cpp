@@ -20,7 +20,7 @@ static unsigned long sLastGeminiCall = 0;
 void connectWiFiGemini(void) {
     if (WiFi.status() == WL_CONNECTED) {
         Serial.println("[WiFi] Already connected");
-        aiClient.setChatMaxTokens(400);
+        aiClient.setChatMaxTokens(1500);
         aiClient.setChatTemperature(0.2);
         aiClient.setChatSystemRole("You are a study environment AI assistant.");
         return;
@@ -43,7 +43,7 @@ void connectWiFiGemini(void) {
         Serial.println("\n[WiFi] Connected!");
         Serial.print("[WiFi] IP: ");   Serial.println(WiFi.localIP());
         Serial.print("[WiFi] RSSI: "); Serial.print(WiFi.RSSI()); Serial.println(" dBm");
-        aiClient.setChatMaxTokens(400);
+        aiClient.setChatMaxTokens(1500);
         aiClient.setChatTemperature(0.2);
         aiClient.setChatSystemRole("You are a study environment AI assistant.");
     } else {
