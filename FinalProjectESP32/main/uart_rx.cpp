@@ -3,6 +3,7 @@
 #include "uart_tx.h"          /* UART_TX_SendCmd, TX_CMD_LED_ON/OFF */
 #include "shared_data.h"
 #include "uart_packet.h"
+#include "session_tracker.h"
 
 #include "driver/uart.h"
 #include "freertos/FreeRTOS.h"
@@ -10,6 +11,40 @@
 #include "freertos/semphr.h"
 
 /* ── Private helpers ─────────────────────────────────────────────────────── */
+
+/*
+ * handleFocusTransition()
+ * Detects edges on the focus_mode field from each incoming packet:
+ *   0 → 1 : focus activated  → start a new session
+ *   1 → 0 : focus deactivated → end session and queue a Gemini report
+ * sPrevFocus = 0xFF on first call so no spurious event fires.
+ */
+static void handleFocusTransition(uint8_t focus) {
+    static uint8_t sPrevFocus = 0xFF;
+    
+    Serial.printf("[Focus] Current: %d, Previous: %d\n", focus, sPrevFocus);
+    
+    if (sPrevFocus == 0xFF) {
+        sPrevFocus = focus;
+        return;
+    }
+    
+    if (sPrevFocus == 0 && focus == 1) {
+        Serial.println("[Focus] Session START triggered");
+        Session_Start();
+    } else if (sPrevFocus == 1 && focus == 0) {
+        Serial.println("[Focus] Session END triggered");
+        SessionSummary_t summary;
+        if (Session_End(&summary)) {
+            Serial.println("[Focus] Session ended, storing report");
+            Session_StorePendingReport(&summary);
+        } else {
+            Serial.println("[Focus] Session ended with no samples");
+        }
+    }
+    
+    sPrevFocus = focus;
+}
 
 /*
  * validateChecksum()
@@ -37,6 +72,7 @@ static void parseAndStore(uint8_t *pkt) {
     uint16_t sound     = ((uint16_t)pkt[6] << 8) | pkt[7];
     uint8_t  triggered = pkt[8];
 
+    handleFocusTransition(focus);
     /*
      * Send LED command back to MCXC444 on every valid packet.
      * focus_mode == 1 → LED ON (0x01)
