@@ -85,13 +85,8 @@ void vWiFiKeepAliveTask(void *pvParameters) {
                 Serial.println("[WiFi] WIFI_CONNECTED_BIT set");
             }
         } else {
-            static unsigned long lastPing = 0;
-            if (millis() - lastPing > 30000) {
-                IPAddress resolvedIP;
-                WiFi.hostByName("google.com", resolvedIP);
-                lastPing = millis();
-                Serial.println("[WiFi] Keep-alive ping sent");
-            }
+            /* WiFi is up — nothing to do, setAutoReconnect handles drops */
+            Serial.println("[WiFi] Keep-alive check: connected");
         }
         vTaskDelay(pdMS_TO_TICKS(10000));
     }

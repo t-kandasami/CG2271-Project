@@ -173,17 +173,10 @@ void setup() {
     Telegram_Init();
     testTelegram();
 
-    /*
-     * Start heartbeat timer — fires every 30s, posts to sTelegramQueue
-     * (non-blocking from timer daemon), drained by vTelegramTask.
-     * Demonstrates: software timer + queue offload pattern.
-     */
-    Telegram_StartPeriodicHeartbeat(30000);
-
     /* ── Create tasks — save handles for stack monitoring and notifications ── */
-    xTaskCreate(vWiFiKeepAliveTask, "WiFiKeep", 2048,                   NULL, 3, &gTaskHandles.wifiKeep);
+    xTaskCreate(vWiFiKeepAliveTask, "WiFiKeep", 4096,                   NULL, 3, &gTaskHandles.wifiKeep);
     xTaskCreate(vDHTTask,           "DHT",       DHT_TASK_STACK_SIZE,   NULL, 2, &gTaskHandles.dht);
-    xTaskCreate(vMonitorTask,       "Monitor",   3072,                   NULL, 1, &gTaskHandles.monitor);
+    xTaskCreate(vMonitorTask,       "Monitor",   4096,                   NULL, 1, &gTaskHandles.monitor);
     xTaskCreate(vSerialRxTask,      "SerialRX",  2048,                   NULL, 2, &gTaskHandles.serialRx);
     xTaskCreate(vUartRxTask,        "UartRX",    4096,                   NULL, 4, &gTaskHandles.uartRx);
     xTaskCreate(vGeminiTask,        "Gemini",    GEMINI_TASK_STACK_SIZE, NULL, 2, &gTaskHandles.gemini);
