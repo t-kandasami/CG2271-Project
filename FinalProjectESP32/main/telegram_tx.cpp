@@ -20,7 +20,7 @@ static bool sReady = false;
  */
 static bool sendOneFreshConnection(const String &msg) {
     if (gTelegramMutex != NULL) {
-        if (xSemaphoreTake(gTelegramMutex, pdMS_TO_TICKS(30000)) != pdTRUE) {
+        if (xSemaphoreTake(gTelegramMutex, pdMS_TO_TICKS(90000)) != pdTRUE) {
             Serial.println("[Telegram] Mutex timeout — send skipped");
             return false;
         }
