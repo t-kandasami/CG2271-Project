@@ -25,7 +25,7 @@ typedef struct {
 
 extern SensorData_t      gSensorData;
 extern SemaphoreHandle_t gSensorMutex;   // binary mutex — protects gSensorData
-extern SemaphoreHandle_t gTelegramMutex; // binary mutex — serialises Telegram SSL sends
+extern SemaphoreHandle_t gTelegramMutex; // binary mutex — serialises ALL SSL sends (Gemini + Telegram, one at a time)
 
 /* ── Inter-task communication ────────────────────────────────────────────── */
 
