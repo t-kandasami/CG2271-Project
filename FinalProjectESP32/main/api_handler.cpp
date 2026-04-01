@@ -57,7 +57,7 @@ bool WiFi_EnsureConnected(void) {
     WiFi.reconnect();
     int attempts = 0;
     while (WiFi.status() != WL_CONNECTED && attempts < 20) {
-        delay(500);
+        vTaskDelay(pdMS_TO_TICKS(500));
         attempts++;
     }
     return (WiFi.status() == WL_CONNECTED);
@@ -211,14 +211,14 @@ void postGeminiSessionReport(const SessionSummary_t &s) {
     response.replace("`", "");
     response.replace("#", "");
 
-    teleMsg  = "Study Session Report\n";
-    teleMsg += "Duration: " + String(s.duration_s / 60) + " min\n\n";
-    teleMsg += response;
+    String msg  = "Study Session Report\n";
+    msg += "Duration: " + String(s.duration_s / 60) + " min\n\n";
+    msg += response;
 
     Serial.println("[Gemini] Sending to Telegram:");
-    Serial.println(teleMsg);
+    Serial.println(msg);
 
-    Telegram_SendMessage(teleMsg);
+    Telegram_SendMessage(msg);
 }
 
 /* ═════════════════════════════════════════════════════════════════════════ */

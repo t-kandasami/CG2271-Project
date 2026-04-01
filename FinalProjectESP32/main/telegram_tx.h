@@ -7,5 +7,3 @@ void Telegram_Init(void);
 void testTelegram(void);
 void Telegram_SendMessage(const String &msg);
 void vTelegramTask(void *pvParameters);
-
-static String teleMsg = "";
