@@ -32,21 +32,34 @@ static void connectWiFiTele() {
 
 void Telegram_Init() {
     connectWiFiTele();
-    bot.sendMessage(CHAT_ID, "ESP32 online!", "");
+    // connectWiFiTele() already sends "ESP32 online!" on success — no duplicate needed
 }
 
 void vTelegramTask(void *pvParameters) {
     (void)pvParameters;
 
+    char lastSentReply[512] = "";   // track last sent reply to avoid duplicates
+
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(30000)); // send every 30s
+        vTaskDelay(pdMS_TO_TICKS(30000)); // check every 30s
         if (xSemaphoreTake(gSensorMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
             float t = gSensorData.esp_temp;
             float h = gSensorData.esp_humidity;
+            char reply[512];
+            strncpy(reply, gSensorData.gemini_reply, sizeof(reply) - 1);
+            reply[sizeof(reply) - 1] = '\0';
             xSemaphoreGive(gSensorMutex);
-            String msg = "🌡 Temp: " + String(t, 1) + " C\n";
-            msg += "💧 Humidity: " + String(h, 1) + " %";
+
+            String msg = "Temp: " + String(t, 1) + " C\n";
+            msg += "Humidity: " + String(h, 1) + " %";
             bot.sendMessage(CHAT_ID, msg, "");
+
+            // Send Gemini reply only if there is one and it's new
+            if (reply[0] != '\0' && strcmp(reply, lastSentReply) != 0) {
+                bot.sendMessage(CHAT_ID, String(reply), "");
+                strncpy(lastSentReply, reply, sizeof(lastSentReply) - 1);
+                lastSentReply[sizeof(lastSentReply) - 1] = '\0';
+            }
         }
     }
 }

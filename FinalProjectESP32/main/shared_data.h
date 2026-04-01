@@ -18,6 +18,9 @@ typedef struct {
     uint16_t sound_raw;         // ADC 0-1023
     uint8_t  sound_triggered;   // 1 = sound event this cycle
 
+    /* Gemini — written by vGeminiTask, read by vTelegramTask */
+    char     gemini_reply[512]; // last Gemini response, null-terminated
+
 } SensorData_t;
 
 extern SensorData_t      gSensorData;

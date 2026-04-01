@@ -33,12 +33,41 @@ void vMonitorTask(void *pvParameters) {
     }
 }
 
-void vGeminiTestTask(void *pvParameters) {
+void vGeminiTask(void *pvParameters) {
     (void)pvParameters;
-    String reply = postGemini("Hello! Reply in one sentence.");
-    Serial.println("[Gemini] Response:");
-    Serial.println(reply);
-    vTaskDelete(NULL);
+
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(65000)); // 65s — longer than Gemini's 60s cooldown
+
+        float t, h;
+        uint16_t light, sound;
+        uint8_t focus;
+        if (xSemaphoreTake(gSensorMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            t     = gSensorData.esp_temp;
+            h     = gSensorData.esp_humidity;
+            light = gSensorData.light_raw;
+            sound = gSensorData.sound_raw;
+            focus = gSensorData.focus_mode;
+            xSemaphoreGive(gSensorMutex);
+        } else {
+            continue;
+        }
+
+        String prompt = "Study environment report: Temp=" + String(t, 1) + "C, Humidity=" + String(h, 1) +
+                        "%, Light=" + String(light) + ", Sound=" + String(sound) +
+                        ", FocusMode=" + String(focus) +
+                        ". In 2-3 sentences, advise whether conditions are suitable for studying and suggest any improvements.";
+
+        String reply = postGemini(prompt);
+
+        if (!reply.isEmpty()) {
+            if (xSemaphoreTake(gSensorMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                strncpy(gSensorData.gemini_reply, reply.c_str(), sizeof(gSensorData.gemini_reply) - 1);
+                gSensorData.gemini_reply[sizeof(gSensorData.gemini_reply) - 1] = '\0';
+                xSemaphoreGive(gSensorMutex);
+            }
+        }
+    }
 }
 
 void setup() {
@@ -61,7 +90,7 @@ void setup() {
     xTaskCreate(vSerialRxTask, "SerialRX", 2048,                NULL, 2,                 NULL);
     // vLEDTask disabled — GPIO26 used by buzzer in vUartRxTask
     xTaskCreate(vUartRxTask,   "UartRX",   4096,                NULL, 4,                 NULL);
-    xTaskCreate(vGeminiTestTask, "GeminiTest", 8192,            NULL, 2,                 NULL);
+    xTaskCreate(vGeminiTask,     "Gemini",     8192,            NULL, 2,                 NULL);
 }
 
 void loop() {
