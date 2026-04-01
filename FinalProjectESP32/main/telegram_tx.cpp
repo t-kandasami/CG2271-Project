@@ -10,16 +10,13 @@
 
 static WiFiClientSecure     *pClient = NULL;
 static UniversalTelegramBot *pBot    = NULL;
+static bool                  sReady  = false;   // true only when bot is confirmed working
 
 /* ── Init ────────────────────────────────────────────────────────────────── */
 void Telegram_Init(void) {
     Serial.println("[Telegram] Initialising...");
 
-    // Simple WiFi connect — no static IP, no power settings
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-    Serial.print("[Telegram] Connecting to WiFi");
+    /* Wait for WiFi — must be connected before creating SSL client */
     int attempts = 0;
     while (WiFi.status() != WL_CONNECTED && attempts < 40) {
         delay(500);
@@ -28,58 +25,97 @@ void Telegram_Init(void) {
     }
 
     if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("\n[Telegram] WiFi failed");
+        Serial.println("\n[Telegram] WiFi not ready — init aborted");
         return;
     }
 
-    Serial.println("\n[Telegram] WiFi connected");
-    Serial.print("[Telegram] IP: ");
-    Serial.println(WiFi.localIP());
+    Serial.println("\n[Telegram] WiFi confirmed — creating client");
 
-    // Create client — setInsecure skips SSL cert verification
+    /* Clean up any previous instance */
+    if (pBot)    { delete pBot;    pBot    = NULL; }
+    if (pClient) { delete pClient; pClient = NULL; }
+
     pClient = new WiFiClientSecure();
     pClient->setInsecure();
-    pClient->setTimeout(15);   // 15s timeout for slow connections
+    pClient->setTimeout(15);
+    delay(500);
 
-    delay(1000);
-
-    // Create bot after client is fully ready
     pBot = new UniversalTelegramBot(BOT_TOKEN, *pClient);
-
     delay(1000);
 
-    Serial.println("[Telegram] Bot created — sending test message");
-
-    // Retry boot message 3 times
-    bool sent = false;
-    for (int i = 0; i < 3 && !sent; i++) {
-        Serial.printf("[Telegram] Attempt %d/3\n", i + 1);
-        sent = pBot->sendMessage(CHAT_ID, "ESP32 online!", "");
-        if (!sent) {
-            Serial.println("[Telegram] Failed — waiting 3s");
-            delay(3000);
+    /* Send boot message — retry 3 times */
+    for (int i = 0; i < 3; i++) {
+        Serial.printf("[Telegram] Boot message attempt %d/3\n", i + 1);
+        if (pBot->sendMessage(CHAT_ID, "ESP32 online!", "")) {
+            Serial.println("[Telegram] Boot message sent!");
+            sReady = true;
+            return;
         }
+        delay(3000);
     }
 
-    if (sent) {
-        Serial.println("[Telegram] Boot message sent!");
+    Serial.println("[Telegram] Boot message failed — bot created but unverified");
+    /*
+     * Still mark as ready — pBot is valid even if boot message failed.
+     * The boot message failure could be a transient network issue.
+     * Let later sends attempt anyway.
+     */
+    sReady = true;
+}
+
+void testTelegram(void) {
+    Serial.println("[Test] Starting Telegram debug...");
+    
+    // Check 1 — WiFi
+    Serial.print("[Test] WiFi status: ");
+    Serial.println(WiFi.status() == WL_CONNECTED ? "CONNECTED" : "DISCONNECTED");
+    Serial.print("[Test] IP: ");
+    Serial.println(WiFi.localIP());
+    
+    // Check 2 — pointers
+    Serial.print("[Test] pClient: ");
+    Serial.println(pClient == NULL ? "NULL" : "OK");
+    Serial.print("[Test] pBot: ");
+    Serial.println(pBot == NULL ? "NULL" : "OK");
+    Serial.print("[Test] sReady: ");
+    Serial.println(sReady ? "true" : "false");
+    
+    // Check 3 — raw TCP connection to Telegram server
+    Serial.println("[Test] Attempting raw TCP to api.telegram.org:443...");
+    if (pClient->connect("api.telegram.org", 443)) {
+        Serial.println("[Test] TCP connection SUCCESS");
+        pClient->stop();
     } else {
-        Serial.println("[Telegram] Boot message failed — check token and chat ID");
+        Serial.println("[Test] TCP connection FAILED — SSL or network issue");
     }
+    
+    // Check 4 — direct sendMessage
+    Serial.println("[Test] Sending test message...");
+    bool sent = pBot->sendMessage(CHAT_ID, "Test message", "");
+    Serial.print("[Test] sendMessage result: ");
+    Serial.println(sent ? "SUCCESS" : "FAILED");
 }
 
 /* ── Send ────────────────────────────────────────────────────────────────── */
 void Telegram_SendMessage(const String &msg) {
+    //Telegram_Init();
+    /* Safety checks before ANY dereference */
+    if (pClient == NULL) {
+        Serial.println("[Telegram] pClient is NULL — not initialised");
+        return;
+    }
     if (pBot == NULL) {
-        Serial.println("[Telegram] Not initialised");
+        Serial.println("[Telegram] pBot is NULL — not initialised");
         return;
     }
-
+    if (!sReady) {
+        Serial.println("[Telegram] Not ready — skipping");
+        return;
+    }
     if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("[Telegram] No WiFi");
+        Serial.println("[Telegram] No WiFi — message dropped");
         return;
     }
-
     if (msg.isEmpty()) {
         Serial.println("[Telegram] Empty message — skipped");
         return;
@@ -90,14 +126,16 @@ void Telegram_SendMessage(const String &msg) {
 
     bool sent = false;
     for (int i = 0; i < 3 && !sent; i++) {
+        Serial.printf("[Telegram] Attempt %d/3\n", i + 1);
         sent = pBot->sendMessage(CHAT_ID, msg, "");
+        Serial.println(sent);
         if (!sent && i < 2) {
-            Serial.printf("[Telegram] Attempt %d failed — retrying\n", i + 1);
-            vTaskDelay(pdMS_TO_TICKS(2000));
+            Serial.println("[Telegram] Failed — retrying in 3s");
+            vTaskDelay(pdMS_TO_TICKS(3000));
         }
     }
 
-    Serial.println(sent ? "[Telegram] Sent!" : "[Telegram] Failed");
+    Serial.println(sent ? "[Telegram] Sent!" : "[Telegram] All attempts failed");
 }
 
 /* ── Periodic task ───────────────────────────────────────────────────────── */
@@ -107,7 +145,7 @@ void vTelegramTask(void *pvParameters) {
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(30000));
 
-        if (pBot == NULL || WiFi.status() != WL_CONNECTED) continue;
+        if (!sReady || pBot == NULL || WiFi.status() != WL_CONNECTED) continue;
 
         float t = 0.0f;
         float h = 0.0f;

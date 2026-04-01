@@ -23,4 +23,5 @@ typedef struct {
 extern SensorData_t      gSensorData;
 extern SemaphoreHandle_t gSensorMutex;
 
+
 #endif // SHARED_DATA_H
